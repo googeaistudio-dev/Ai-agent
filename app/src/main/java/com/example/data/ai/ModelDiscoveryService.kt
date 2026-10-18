@@ -12,34 +12,34 @@ class ModelDiscoveryService {
     fun getGeminiCatalog(): List<DiscoveredModel> {
         return listOf(
             DiscoveredModel(
-                id = "gemini-3.8-flash",
-                displayName = "Gemini 3.8 Flash (Recommended)",
+                id = "gemini-2.5-flash",
+                displayName = "Gemini 2.5 Flash (Recommended)",
                 supportsVision = true,
-                description = "Fast, multimodal model with Google Search grounding support for general tasks."
+                description = "Fast, state-of-the-art multimodal model with Google Search grounding support."
             ),
             DiscoveredModel(
-                id = "gemini-3.8-live",
-                displayName = "Gemini 3.8 Live (Voice Conversation)",
+                id = "gemini-2.0-flash",
+                displayName = "Gemini 2.0 Flash (Next-Gen)",
                 supportsVision = true,
-                description = "Ultra-low latency conversational live model for real-time natural voice interaction."
+                description = "Ultra-low latency multimodal model optimized for real-time mobile agents."
             ),
             DiscoveredModel(
-                id = "gemini-4-argon",
-                displayName = "Gemini 4 Argon (Advanced Planner)",
+                id = "gemini-1.5-flash",
+                displayName = "Gemini 1.5 Flash (Lightweight)",
                 supportsVision = true,
-                description = "Deep reasoning model for complex multi-step UI action planning and verification."
+                description = "High-speed, cost-effective multimodal model for instant task automation."
             ),
             DiscoveredModel(
-                id = "gemini-3.1-flash-lite",
-                displayName = "Gemini 3.1 Flash-Lite (Speed)",
+                id = "gemini-1.5-pro",
+                displayName = "Gemini 1.5 Pro (Deep Reasoning)",
                 supportsVision = true,
-                description = "High-speed, lightweight model for instant screen perception and quick questions."
+                description = "Complex reasoning model for intricate multi-step UI workflows."
             ),
             DiscoveredModel(
-                id = "gemini-3.5-flash",
-                displayName = "Gemini 3.5 Flash",
+                id = "gemini-2.5-pro",
+                displayName = "Gemini 2.5 Pro (Advanced Intelligence)",
                 supportsVision = true,
-                description = "Balanced versatile model for general question answering and screen understanding."
+                description = "Highest capability model for complex problem solving and code reasoning."
             )
         )
     }

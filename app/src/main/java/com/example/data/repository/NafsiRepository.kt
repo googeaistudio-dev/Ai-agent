@@ -47,7 +47,7 @@ class NafsiRepository(private val context: Context) {
     val speechSynthesizer: SpeechSynthesizer = SpeechSynthesizer(context)
     val listeningManager: ContinuousListeningManager = ContinuousListeningManager(context, speechEngine, speechSynthesizer)
 
-    val planner = TaskPlanner(geminiClient)
+    val planner = TaskPlanner(geminiClient, openAIClient)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val _mascotState = MutableStateFlow(MascotState.IDLE)

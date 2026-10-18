@@ -159,17 +159,16 @@ fun SettingsScreen(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Google Gemini Preset Button
                     Button(
                         onClick = {
                             providerType = AIProviderType.GEMINI_DIRECT
                             baseUrlInput = "https://generativelanguage.googleapis.com/"
-                            selectedModel = "gemini-3.8-flash"
+                            selectedModel = "gemini-2.5-flash"
                             useGoogleSearch = true
 
-                            // Auto-inject environment key if user field is blank
                             val envKey = try {
                                 val k = BuildConfig.GEMINI_API_KEY
                                 if (k.isNotBlank() && k != "MY_GEMINI_API_KEY") k else ""
@@ -182,7 +181,7 @@ fun SettingsScreen(
                             val updated = config.copy(
                                 providerType = AIProviderType.GEMINI_DIRECT,
                                 baseUrl = "https://generativelanguage.googleapis.com/",
-                                modelId = "gemini-3.8-flash",
+                                modelId = "gemini-2.5-flash",
                                 apiKey = apiKeyInput.ifBlank { envKey },
                                 useGoogleSearch = true
                             )
@@ -194,15 +193,15 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = "Google Gemini\n(প্রস্তাবিত)",
+                            text = "Google Gemini\n(2.5 Flash)",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            lineHeight = 14.sp
+                            fontSize = 10.sp,
+                            lineHeight = 13.sp
                         )
                     }
 
-                    // OpenRouter / Custom Preset Button
+                    // OpenRouter Preset Button
                     Button(
                         onClick = {
                             providerType = AIProviderType.OPENAI_COMPATIBLE
@@ -222,11 +221,39 @@ fun SettingsScreen(
                             .border(1.dp, NeonCyan, RoundedCornerShape(12.dp))
                     ) {
                         Text(
-                            text = "OpenRouter /\nCustom API",
+                            text = "OpenRouter\nAPI",
                             color = NeonCyan,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            lineHeight = 14.sp
+                            fontSize = 10.sp,
+                            lineHeight = 13.sp
+                        )
+                    }
+
+                    // Groq AI Fast Preset Button
+                    Button(
+                        onClick = {
+                            providerType = AIProviderType.OPENAI_COMPATIBLE
+                            baseUrlInput = "https://api.groq.com/openai/v1"
+                            selectedModel = "llama-3.3-70b-versatile"
+                            val updated = config.copy(
+                                providerType = AIProviderType.OPENAI_COMPATIBLE,
+                                baseUrl = "https://api.groq.com/openai/v1",
+                                modelId = "llama-3.3-70b-versatile"
+                            )
+                            viewModel.saveProviderConfig(updated)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = CyberSurface),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .border(1.dp, NeonPurple, RoundedCornerShape(12.dp))
+                    ) {
+                        Text(
+                            text = "Groq AI\n(Fast)",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp,
+                            lineHeight = 13.sp
                         )
                     }
                 }
@@ -755,6 +782,75 @@ fun SettingsScreen(
                         checked = reduceMotion,
                         onCheckedChange = { viewModel.setReduceMotion(it) },
                         colors = SwitchDefaults.colors(checkedThumbColor = NeonCyan, checkedTrackColor = NeonCyan.copy(alpha = 0.3f))
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Accessibility Automation Service Card
+        val isAccessibilityEnabled = viewModel.isAccessibilityEnabled()
+        GlassCard(borderColor = if (isAccessibilityEnabled) HologramGreen else WarningAmber) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(if (isAccessibilityEnabled) HologramGreen else WarningAmber)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "অ্যাক্সেসিবিলিটি সার্ভিস (Accessibility Service)",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    }
+
+                    Text(
+                        text = if (isAccessibilityEnabled) "সক্রিয় (Active)" else "নিষ্ক্রিয় (Off)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isAccessibilityEnabled) HologramGreen else WarningAmber
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "মোবাইলের অন্য অ্যাপে কাজ করা, স্ক্রিনে স্বয়ংক্রিয় বোতাম চাপা ও ফলাফল যাচাই করতে Accessibility সার্ভিস সক্রিয় করুন।",
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    lineHeight = 16.sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isAccessibilityEnabled) CyberSurface else WarningAmber
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = if (isAccessibilityEnabled) "✓ অ্যাক্সেসিবিলিটি সেটিংস যাচাই করুন" else "👉 অ্যাক্সেসিবিলিটি সেটিংস থেকে Nafsi AI চালু করুন",
+                        color = if (isAccessibilityEnabled) HologramGreen else Color.Black,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
                     )
                 }
             }

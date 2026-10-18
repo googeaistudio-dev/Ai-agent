@@ -35,13 +35,18 @@ class PreferencesManager(private val context: Context) {
             val buildKey = BuildConfig.GEMINI_API_KEY
             if (buildKey.isNotBlank() && buildKey != "MY_GEMINI_API_KEY") buildKey else ""
         } catch (_: Throwable) { "" }
+        val rawModelId = prefs.getString("model_id", "gemini-2.5-flash") ?: "gemini-2.5-flash"
+        val normalizedModelId = if (rawModelId.contains("gemini-3.") || rawModelId.contains("gemini-4")) "gemini-2.5-flash" else rawModelId
+
+        val rawVisionModel = prefs.getString("vision_model_id", "gemini-2.5-flash") ?: "gemini-2.5-flash"
+        val normalizedVisionModel = if (rawVisionModel.contains("gemini-3.") || rawVisionModel.contains("gemini-4")) "gemini-2.5-flash" else rawVisionModel
 
         return AIProviderConfig(
             providerType = type,
             apiKey = key,
             baseUrl = prefs.getString("base_url", "https://generativelanguage.googleapis.com/") ?: "https://generativelanguage.googleapis.com/",
-            modelId = prefs.getString("model_id", "gemini-3.8-flash") ?: "gemini-3.8-flash",
-            visionModelId = prefs.getString("vision_model_id", "gemini-3.8-flash") ?: "gemini-3.8-flash",
+            modelId = normalizedModelId,
+            visionModelId = normalizedVisionModel,
             temperature = prefs.getFloat("temperature", 0.3f),
             maxTokens = prefs.getInt("max_tokens", 2048),
             timeoutSeconds = prefs.getInt("timeout_seconds", 60),

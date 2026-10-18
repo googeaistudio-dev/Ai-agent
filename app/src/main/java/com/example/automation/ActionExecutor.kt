@@ -14,10 +14,15 @@ class ActionExecutor(private val context: Context) {
 
     suspend fun executeStep(step: ActionStep): ActionStep = withContext(Dispatchers.Default) {
         val service = NafsiAccessibilityService.instance
-        if (service == null && step.action != ActionType.LAUNCH_APP) {
+        val requiresAccessibility = when (step.action) {
+            ActionType.LAUNCH_APP, ActionType.OPEN_URL, ActionType.OPEN_SETTINGS -> false
+            else -> true
+        }
+
+        if (service == null && requiresAccessibility) {
             return@withContext step.copy(
                 status = StepStatus.FAILED,
-                result = "Accessibility Service is not enabled. Please enable it in Settings."
+                result = "স্ক্রিনে বোতাম চাপার জন্য অনুগ্রহ করে Settings > Accessibility থেকে Nafsi AI চালু করুন।"
             )
         }
 

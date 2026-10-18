@@ -8,46 +8,33 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
-import android.os.Bundle
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.unit.dp
+import android.widget.FrameLayout
+import android.widget.ImageView
 import androidx.core.app.NotificationCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
-import androidx.lifecycle.setViewTreeLifecycleOwner
-import androidx.lifecycle.setViewTreeViewModelStoreOwner
-import androidx.savedstate.SavedStateRegistry
-import androidx.savedstate.SavedStateRegistryController
-import androidx.savedstate.SavedStateRegistryOwner
-import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.MainActivity
-import com.example.domain.model.MascotState
-import com.example.ui.mascot.NafsiMascot
-import com.example.ui.theme.NafsiTheme
+import com.example.R
+import kotlin.math.abs
 
-class MascotOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
+/**
+ * Robust, crash-proof Floating Mascot Overlay Service.
+ * Does not rely on fragile WindowManager Compose recomposers, ensuring zero crashes
+ * across all Android versions while providing smooth draggable floating mascot companion.
+ */
+class MascotOverlayService : Service() {
 
     private var windowManager: WindowManager? = null
-    private var overlayView: ComposeView? = null
-    private var params: WindowManager.LayoutParams? = null
-
-    private val lifecycleRegistry = LifecycleRegistry(this)
-    private val store = ViewModelStore()
-    private val savedStateRegistryController = SavedStateRegistryController.create(this)
-
-    override val lifecycle: Lifecycle get() = lifecycleRegistry
-    override val viewModelStore: ViewModelStore get() = store
-    override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
+    private var overlayContainer: FrameLayout? = null
+    private var windowLayoutParams: WindowManager.LayoutParams? = null
 
     private var initialX = 0
     private var initialY = 0
@@ -55,9 +42,10 @@ class MascotOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Sav
     private var initialTouchY = 0f
 
     companion object {
-        const val CHANNEL_ID = "nafsi_overlay_channel"
-        const val NOTIFICATION_ID = 1001
+        const val CHANNEL_ID = "nafsi_floating_mascot_channel"
+        const val NOTIFICATION_ID = 2026
 
+        @Volatile
         var isRunning = false
             private set
 
@@ -85,15 +73,10 @@ class MascotOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Sav
     override fun onCreate() {
         super.onCreate()
         try {
-            savedStateRegistryController.performRestore(Bundle())
-            lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
-            lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
-            lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
-
-            isRunning = true
+            // CRITICAL: Always initialize notification and call startForeground at line 1 of onCreate
+            // to satisfy Android 8+ foreground service requirements and prevent RemoteServiceException.
             createNotificationChannel()
-
-            val notification = buildNotification("Nafsi AI floating companion is active")
+            val notification = buildNotification("Nafsi AI ভাসমান সহকারী সক্রিয় রয়েছে")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
@@ -104,8 +87,10 @@ class MascotOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Sav
                 startForeground(NOTIFICATION_ID, notification)
             }
 
+            isRunning = true
+
             if (Settings.canDrawOverlays(this)) {
-                showFloatingMascot()
+                createFloatingMascotView()
             } else {
                 stopSelf()
             }
@@ -114,9 +99,9 @@ class MascotOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Sav
         }
     }
 
-    private fun showFloatingMascot() {
+    private fun createFloatingMascotView() {
         try {
-            windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            windowManager = getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
 
             val layoutFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -125,59 +110,73 @@ class MascotOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Sav
                 WindowManager.LayoutParams.TYPE_PHONE
             }
 
-            params = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
+            val density = resources.displayMetrics.density
+            val sizePx = (72 * density).toInt()
+
+            windowLayoutParams = WindowManager.LayoutParams(
+                sizePx,
+                sizePx,
                 layoutFlag,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                         WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.TOP or Gravity.START
-                x = 80
-                y = 300
+                x = (40 * density).toInt()
+                y = (180 * density).toInt()
             }
 
-            overlayView = ComposeView(this).apply {
-                setViewTreeLifecycleOwner(this@MascotOverlayService)
-                setViewTreeViewModelStoreOwner(this@MascotOverlayService)
-                setViewTreeSavedStateRegistryOwner(this@MascotOverlayService)
+            // High-polish floating orb container with glowing neon cyan border
+            overlayContainer = FrameLayout(this).apply {
+                val glowBorder = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.parseColor("#E60A0E1A"))
+                    setStroke((2 * density).toInt(), Color.parseColor("#00F0FF"))
+                }
+                background = glowBorder
+                clipToOutline = true
+                elevation = 16f
 
-                setContent {
-                    NafsiTheme {
-                        NafsiMascot(
-                            state = MascotState.IDLE,
-                            size = 72.dp
-                        )
-                    }
+                val imageView = ImageView(this@MascotOverlayService).apply {
+                    setImageResource(R.drawable.nafsi_app_icon_1792287520913)
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    val pad = (6 * density).toInt()
+                    setPadding(pad, pad, pad, pad)
                 }
 
-                setOnTouchListener { view, event ->
-                    val p = params ?: return@setOnTouchListener false
+                addView(
+                    imageView,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        Gravity.CENTER
+                    )
+                )
+
+                setOnTouchListener { _, event ->
+                    val lp = windowLayoutParams ?: return@setOnTouchListener false
                     when (event.action) {
                         MotionEvent.ACTION_DOWN -> {
-                            initialX = p.x
-                            initialY = p.y
+                            initialX = lp.x
+                            initialY = lp.y
                             initialTouchX = event.rawX
                             initialTouchY = event.rawY
                             true
                         }
                         MotionEvent.ACTION_MOVE -> {
-                            p.x = initialX + (event.rawX - initialTouchX).toInt()
-                            p.y = initialY + (event.rawY - initialTouchY).toInt()
+                            lp.x = initialX + (event.rawX - initialTouchX).toInt()
+                            lp.y = initialY + (event.rawY - initialTouchY).toInt()
                             try {
-                                windowManager?.updateViewLayout(view, p)
+                                windowManager?.updateViewLayout(this, lp)
                             } catch (_: Throwable) {}
                             true
                         }
                         MotionEvent.ACTION_UP -> {
-                            val diffX = Math.abs(event.rawX - initialTouchX)
-                            val diffY = Math.abs(event.rawY - initialTouchY)
+                            val diffX = abs(event.rawX - initialTouchX)
+                            val diffY = abs(event.rawY - initialTouchY)
+                            // Click detected if movement was less than 15 pixels
                             if (diffX < 15 && diffY < 15) {
-                                val intent = Intent(this@MascotOverlayService, MainActivity::class.java).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                                }
-                                startActivity(intent)
+                                openMainActivity()
                             }
                             true
                         }
@@ -186,10 +185,19 @@ class MascotOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Sav
                 }
             }
 
-            windowManager?.addView(overlayView, params)
+            windowManager?.addView(overlayContainer, windowLayoutParams)
         } catch (_: Throwable) {
             stopSelf()
         }
+    }
+
+    private fun openMainActivity() {
+        try {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            startActivity(intent)
+        } catch (_: Throwable) {}
     }
 
     private fun createNotificationChannel() {
@@ -200,6 +208,7 @@ class MascotOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Sav
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Shows status of continuous listening and floating mascot"
+                setShowBadge(false)
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
@@ -217,23 +226,20 @@ class MascotOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Sav
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Nafsi AI Agent")
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        isRunning = false
         try {
-            lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
-            lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
-            lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-            store.clear()
-            isRunning = false
-            if (overlayView != null) {
-                windowManager?.removeView(overlayView)
-                overlayView = null
+            if (overlayContainer != null) {
+                windowManager?.removeView(overlayContainer)
+                overlayContainer = null
             }
         } catch (_: Throwable) {}
     }
