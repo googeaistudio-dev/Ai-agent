@@ -59,8 +59,8 @@ class MainActivity : ComponentActivity() {
                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 }
 
-                // If floating mascot enabled, launch overlay service
-                if (viewModel.floatingMascotEnabled.value) {
+                // If floating mascot enabled and overlay permission is granted, launch overlay service
+                if (viewModel.floatingMascotEnabled.value && android.provider.Settings.canDrawOverlays(this@MainActivity)) {
                     viewModel.setFloatingMascotEnabled(true)
                 }
             }

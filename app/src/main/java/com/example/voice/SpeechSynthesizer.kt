@@ -29,14 +29,20 @@ class SpeechSynthesizer(
     var isMuted: Boolean = false
 
     init {
-        tts = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                isInitialized = true
-                configureLocale("bn")
-                tts?.setSpeechRate(speechRate)
-                tts?.setPitch(speechPitch)
-                setupProgressListener()
+        try {
+            tts = TextToSpeech(context) { status ->
+                if (status == TextToSpeech.SUCCESS) {
+                    isInitialized = true
+                    try {
+                        configureLocale("bn")
+                        tts?.setSpeechRate(speechRate)
+                        tts?.setPitch(speechPitch)
+                        setupProgressListener()
+                    } catch (_: Throwable) {}
+                }
             }
+        } catch (_: Throwable) {
+            tts = null
         }
     }
 

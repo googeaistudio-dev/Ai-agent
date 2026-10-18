@@ -257,28 +257,57 @@ fun InteractiveMascotStudio(
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            QuickActionChip(
-                label = "ক্যালকুলেটর ২+২",
-                sublabel = "Calculator 2+2",
-                onClick = { onQuickCommand("ক্যালকুলেটর খোলো এবং দুই যোগ দুই করো") },
-                modifier = Modifier.weight(1f)
-            )
-            QuickActionChip(
-                label = "স্ক্রিন পরিদর্শন",
-                sublabel = "Inspect Screen",
-                onClick = { onQuickCommand("এই স্ক্রিনে কী লেখা আছে?") },
-                modifier = Modifier.weight(1f)
-            )
-            QuickActionChip(
-                label = "সেটিংস খোলো",
-                sublabel = "Open Settings",
-                onClick = { onQuickCommand("Open Settings") },
-                modifier = Modifier.weight(1f)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                QuickActionChip(
+                    label = "ক্যালকুলেটর ২+২",
+                    sublabel = "হিসাব ও ভেরিফিকেশন",
+                    onClick = { onQuickCommand("ক্যালকুলেটর খোলো এবং দুই যোগ দুই করো") },
+                    modifier = Modifier.weight(1f)
+                )
+                QuickActionChip(
+                    label = "ইউটিউবে গান",
+                    sublabel = "YouTube Music",
+                    onClick = { onQuickCommand("ইউটিউবে গান চালাও") },
+                    modifier = Modifier.weight(1f)
+                )
+                QuickActionChip(
+                    label = "ওয়াইফাই সেটিংস",
+                    sublabel = "Wi-Fi Settings",
+                    onClick = { onQuickCommand("ওয়াইফাই খোলো") },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                QuickActionChip(
+                    label = "স্ক্রিন পরিদর্শন",
+                    sublabel = "পর্দায় কী আছে?",
+                    onClick = { onQuickCommand("এই স্ক্রিনে কী লেখা আছে?") },
+                    modifier = Modifier.weight(1f)
+                )
+                QuickActionChip(
+                    label = "একটি কৌতুক",
+                    sublabel = "হাসির রসিকতা",
+                    onClick = { onQuickCommand("আমাকে একটি কৌতুক বলো") },
+                    modifier = Modifier.weight(1f)
+                )
+                QuickActionChip(
+                    label = "গুগল সার্চ",
+                    sublabel = "আবহাওয়া খোঁজ",
+                    onClick = { onQuickCommand("গুগল সার্চ করো আজকের আবহাওয়া কেমন") },
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }

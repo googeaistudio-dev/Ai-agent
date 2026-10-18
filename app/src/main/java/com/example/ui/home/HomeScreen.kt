@@ -136,6 +136,48 @@ fun HomeScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // AI Model & Key Connection Status Banner
+        val providerConfig by viewModel.providerConfig.collectAsState()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(CyberSurface)
+                .border(
+                    1.dp,
+                    if (providerConfig.apiKey.isNotBlank()) HologramGreen.copy(alpha = 0.4f) else WarningAmber.copy(alpha = 0.6f),
+                    RoundedCornerShape(12.dp)
+                )
+                .clickable { onNavigateToSettings() }
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(if (providerConfig.apiKey.isNotBlank()) HologramGreen else WarningAmber)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (providerConfig.apiKey.isNotBlank()) "AI প্রস্তুত: ${providerConfig.modelId}" else "AI সেটআপ প্রয়োজন (API Key + URL + Model)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (providerConfig.apiKey.isNotBlank()) TextPrimary else WarningAmber
+                )
+            }
+            Text(
+                text = "কনফিগার করুন >",
+                fontSize = 11.sp,
+                color = NeonCyan,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
         Spacer(modifier = Modifier.height(14.dp))
 
         // Accessibility Service Alert Banner if not enabled

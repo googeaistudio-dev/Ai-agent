@@ -139,4 +139,28 @@ class NafsiAccessibilityService : AccessibilityService() {
     fun performHome(): Boolean {
         return performGlobalAction(GLOBAL_ACTION_HOME)
     }
+
+    fun performRecents(): Boolean {
+        return performGlobalAction(GLOBAL_ACTION_RECENTS)
+    }
+
+    fun performNotifications(): Boolean {
+        return performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
+    }
+
+    fun performQuickSettings(): Boolean {
+        return performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS)
+    }
+
+    fun performTakeScreenshot(): Boolean {
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            performGlobalAction(GLOBAL_ACTION_TAKE_SCREENSHOT)
+        } else false
+    }
+
+    fun performLockScreen(): Boolean {
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+        } else false
+    }
 }

@@ -110,6 +110,58 @@ class ActionExecutor(private val context: Context) {
                     }
                 }
 
+                ActionType.SHOW_RECENTS -> {
+                    val success = service?.performRecents() ?: false
+                    delay(400L)
+                    if (success) {
+                        step.copy(status = StepStatus.COMPLETED, result = "Opened Recent Apps")
+                    } else {
+                        step.copy(status = StepStatus.FAILED, result = "Failed to open Recents")
+                    }
+                }
+
+                ActionType.SHOW_NOTIFICATIONS -> {
+                    val success = service?.performNotifications() ?: false
+                    delay(400L)
+                    if (success) {
+                        step.copy(status = StepStatus.COMPLETED, result = "Opened Notifications")
+                    } else {
+                        step.copy(status = StepStatus.FAILED, result = "Failed to open Notifications")
+                    }
+                }
+
+                ActionType.TAKE_SCREENSHOT -> {
+                    val success = service?.performTakeScreenshot() ?: false
+                    delay(500L)
+                    if (success) {
+                        step.copy(status = StepStatus.COMPLETED, result = "Captured screenshot")
+                    } else {
+                        step.copy(status = StepStatus.FAILED, result = "Screenshot action not supported or failed")
+                    }
+                }
+
+                ActionType.OPEN_SETTINGS -> {
+                    val result = appLauncher.launchAppByName(step.target ?: "Settings")
+                    if (result.isSuccess) {
+                        step.copy(status = StepStatus.COMPLETED, result = result.getOrNull())
+                    } else {
+                        step.copy(status = StepStatus.FAILED, result = result.exceptionOrNull()?.message)
+                    }
+                }
+
+                ActionType.OPEN_URL -> {
+                    val url = step.target ?: "https://www.google.com"
+                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).apply {
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    try {
+                        context.startActivity(intent)
+                        step.copy(status = StepStatus.COMPLETED, result = "Opened link: $url")
+                    } catch (e: Exception) {
+                        step.copy(status = StepStatus.FAILED, result = "Failed to open URL: ${e.message}")
+                    }
+                }
+
                 ActionType.SCROLL -> {
                     step.copy(status = StepStatus.COMPLETED, result = "Scrolled screen")
                 }

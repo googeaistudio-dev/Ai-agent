@@ -18,19 +18,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -65,6 +67,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.BuildConfig
 import com.example.domain.model.AIProviderConfig
 import com.example.domain.model.AIProviderType
 import com.example.ui.MainViewModel
@@ -94,9 +97,10 @@ fun SettingsScreen(
     val testStatus by viewModel.connectionTestStatus.collectAsState()
     val isTesting by viewModel.isTestingConnection.collectAsState()
     val discoveredModels by viewModel.discoveredModels.collectAsState()
-    val isDiscovering by viewModel.isDiscovering.collectAsState()
     val diagnostics by viewModel.diagnostics.collectAsState()
 
+    var providerType by remember(config.providerType) { mutableStateOf(config.providerType) }
+    var baseUrlInput by remember(config.baseUrl) { mutableStateOf(config.baseUrl) }
     var apiKeyInput by remember(config.apiKey) { mutableStateOf(config.apiKey) }
     var showApiKey by remember { mutableStateOf(false) }
     var selectedModel by remember(config.modelId) { mutableStateOf(config.modelId) }
@@ -106,7 +110,6 @@ fun SettingsScreen(
     var continuousListening by remember(voiceSettings.continuousListening) { mutableStateOf(voiceSettings.continuousListening) }
     var selectedLang by remember(voiceSettings.language) { mutableStateOf(voiceSettings.language) }
     var speechRate by remember(voiceSettings.speechRate) { mutableFloatStateOf(voiceSettings.speechRate) }
-    var muteResponses by remember(voiceSettings.muteSpokenResponses) { mutableStateOf(voiceSettings.muteSpokenResponses) }
 
     val scrollState = rememberScrollState()
 
@@ -118,40 +121,247 @@ fun SettingsScreen(
             .padding(16.dp)
     ) {
         Text(
-            text = "কনফিগারেশন ও সেটিংস (Settings)",
+            text = "AI ও সিস্টেম সেটিংস (Settings)",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = TextPrimary
         )
         Text(
-            text = "AI মডেল, ভয়েস ইঞ্জিন, সিক্রেট কি এবং ডায়াগনস্টিক",
+            text = "API Key, URL, মডেল নেম এবং ভয়েস কনফিগারেশন",
             style = MaterialTheme.typography.bodySmall,
             color = TextSecondary
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // AI Provider Card
+        // 1-Click AI Setup Presets Banner
+        GlassCard(borderColor = NeonPurple) {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = "Quick Setup", tint = NeonCyan, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "আর্টিফিসিয়াল ইন্টেলিজেন্ট দ্রুত সেটআপ (AI Presets)",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = NeonCyan
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "এক ট্যাপে API + URL + Model Name সেট করুন:",
+                    fontSize = 12.sp,
+                    color = TextSecondary
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Google Gemini Preset Button
+                    Button(
+                        onClick = {
+                            providerType = AIProviderType.GEMINI_DIRECT
+                            baseUrlInput = "https://generativelanguage.googleapis.com/"
+                            selectedModel = "gemini-3.8-flash"
+                            useGoogleSearch = true
+
+                            // Auto-inject environment key if user field is blank
+                            val envKey = try {
+                                val k = BuildConfig.GEMINI_API_KEY
+                                if (k.isNotBlank() && k != "MY_GEMINI_API_KEY") k else ""
+                            } catch (_: Throwable) { "" }
+
+                            if (apiKeyInput.isBlank() && envKey.isNotBlank()) {
+                                apiKeyInput = envKey
+                            }
+
+                            val updated = config.copy(
+                                providerType = AIProviderType.GEMINI_DIRECT,
+                                baseUrl = "https://generativelanguage.googleapis.com/",
+                                modelId = "gemini-3.8-flash",
+                                apiKey = apiKeyInput.ifBlank { envKey },
+                                useGoogleSearch = true
+                            )
+                            viewModel.saveProviderConfig(updated)
+                            viewModel.testConnection()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Google Gemini\n(প্রস্তাবিত)",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp
+                        )
+                    }
+
+                    // OpenRouter / Custom Preset Button
+                    Button(
+                        onClick = {
+                            providerType = AIProviderType.OPENAI_COMPATIBLE
+                            baseUrlInput = "https://openrouter.ai/api/v1"
+                            selectedModel = "google/gemini-2.0-flash-001"
+                            val updated = config.copy(
+                                providerType = AIProviderType.OPENAI_COMPATIBLE,
+                                baseUrl = "https://openrouter.ai/api/v1",
+                                modelId = "google/gemini-2.0-flash-001"
+                            )
+                            viewModel.saveProviderConfig(updated)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = CyberSurface),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .border(1.dp, NeonCyan, RoundedCornerShape(12.dp))
+                    ) {
+                        Text(
+                            text = "OpenRouter /\nCustom API",
+                            color = NeonCyan,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // AI Provider Details Card (API + URL + Model Name)
         GlassCard {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Psychology, contentDescription = "AI", tint = NeonCyan)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "AI মডেল ম্যানেজার (Model Manager)",
+                        text = "AI প্রোভাইডার কনফিগারেশন (API + URL + Model)",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Model Selection Dropdown
+                // Provider Selector Tab
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(CyberSurface)
+                        .padding(4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (providerType == AIProviderType.GEMINI_DIRECT) NeonCyan.copy(alpha = 0.2f) else Color.Transparent)
+                            .clickable {
+                                providerType = AIProviderType.GEMINI_DIRECT
+                                if (baseUrlInput.contains("openrouter") || baseUrlInput.contains("openai")) {
+                                    baseUrlInput = "https://generativelanguage.googleapis.com/"
+                                }
+                                if (!selectedModel.startsWith("gemini-")) {
+                                    selectedModel = "gemini-3.8-flash"
+                                }
+                            }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Google Gemini REST",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (providerType == AIProviderType.GEMINI_DIRECT) NeonCyan else TextSecondary
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (providerType == AIProviderType.OPENAI_COMPATIBLE) NeonPurple.copy(alpha = 0.2f) else Color.Transparent)
+                            .clickable {
+                                providerType = AIProviderType.OPENAI_COMPATIBLE
+                                if (baseUrlInput.contains("generativelanguage")) {
+                                    baseUrlInput = "https://openrouter.ai/api/v1"
+                                }
+                            }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "OpenAI Compatible",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (providerType == AIProviderType.OPENAI_COMPATIBLE) NeonPurple else TextSecondary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // 1. API Base URL Field
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Link, contentDescription = "URL", tint = NeonCyan, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = "API Base URL:", fontSize = 12.sp, color = TextSecondary, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    Text(
+                        text = "Reset Default",
+                        fontSize = 11.sp,
+                        color = NeonCyan,
+                        modifier = Modifier.clickable {
+                            baseUrlInput = if (providerType == AIProviderType.GEMINI_DIRECT) {
+                                "https://generativelanguage.googleapis.com/"
+                            } else {
+                                "https://openrouter.ai/api/v1"
+                            }
+                        }
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+
+                OutlinedTextField(
+                    value = baseUrlInput,
+                    onValueChange = { baseUrlInput = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("base_url_input"),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = CyberCardBorder,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        focusedContainerColor = CyberSurface,
+                        unfocusedContainerColor = CyberSurface
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // 2. Model Name Field & Dropdown
                 Text(
-                    text = "নির্বাচিত মডেল (Selected Model)",
+                    text = "মডেল নেম (Model Name):",
                     fontSize = 12.sp,
-                    color = TextSecondary
+                    color = TextSecondary,
+                    fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.height(4.dp))
 
@@ -200,47 +410,37 @@ fun SettingsScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Google Search Grounding toggle
+                // 3. API Key Field
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Search, contentDescription = "Search", tint = NeonCyan, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = "Google Search Grounding",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                            Text(
-                                text = "সঠিক ও হালনাগাদ তথ্য আনতে সার্চ ডেটা যুক্ত রাখুন",
-                                fontSize = 11.sp,
-                                color = TextSecondary
-                            )
-                        }
+                        Icon(Icons.Default.Key, contentDescription = "Key", tint = NeonCyan, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = "API Key (Keystore সুরক্ষিত):", fontSize = 12.sp, color = TextSecondary, fontWeight = FontWeight.SemiBold)
                     }
 
-                    Switch(
-                        checked = useGoogleSearch,
-                        onCheckedChange = { useGoogleSearch = it },
-                        colors = SwitchDefaults.colors(checkedThumbColor = NeonCyan, checkedTrackColor = NeonCyan.copy(alpha = 0.3f))
+                    // Auto-fill from injected secret button
+                    Text(
+                        text = "স্বয়ংক্রিয় কি ব্যবহার করুন",
+                        fontSize = 11.sp,
+                        color = HologramGreen,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            val envKey = try {
+                                val k = BuildConfig.GEMINI_API_KEY
+                                if (k.isNotBlank() && k != "MY_GEMINI_API_KEY") k else ""
+                            } catch (_: Throwable) { "" }
+                            if (envKey.isNotBlank()) {
+                                apiKeyInput = envKey
+                            }
+                        }
                     )
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // API Key input
-                Text(
-                    text = "API Key (Keystore সুরক্ষিত)",
-                    fontSize = 12.sp,
-                    color = TextSecondary
-                )
                 Spacer(modifier = Modifier.height(4.dp))
 
                 OutlinedTextField(
@@ -273,11 +473,46 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
+                // Google Search Grounding toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Search, contentDescription = "Search", tint = NeonCyan, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "Google Search Grounding",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "সঠিক ও হালনাগাদ তথ্য আনতে গুগল সার্চ ডেটা যুক্ত",
+                                fontSize = 11.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+
+                    Switch(
+                        checked = useGoogleSearch,
+                        onCheckedChange = { useGoogleSearch = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = NeonCyan, checkedTrackColor = NeonCyan.copy(alpha = 0.3f))
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // Action buttons: Test Connection & Save
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = {
                             val updated = config.copy(
+                                providerType = providerType,
+                                baseUrl = baseUrlInput.trim(),
                                 apiKey = apiKeyInput.trim(),
                                 modelId = selectedModel.trim(),
                                 useGoogleSearch = useGoogleSearch
@@ -302,6 +537,8 @@ fun SettingsScreen(
                     Button(
                         onClick = {
                             val updated = config.copy(
+                                providerType = providerType,
+                                baseUrl = baseUrlInput.trim(),
                                 apiKey = apiKeyInput.trim(),
                                 modelId = selectedModel.trim(),
                                 useGoogleSearch = useGoogleSearch
@@ -321,7 +558,7 @@ fun SettingsScreen(
                 }
 
                 if (!testStatus.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = testStatus.orEmpty(),
                         fontSize = 12.sp,

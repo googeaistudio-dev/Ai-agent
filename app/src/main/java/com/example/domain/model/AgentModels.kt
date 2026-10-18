@@ -44,6 +44,11 @@ enum class ActionType(val label: String) {
     ENTER_TEXT("enter_text"),
     PRESS_BACK("press_back"),
     PRESS_HOME("press_home"),
+    SHOW_RECENTS("show_recents"),
+    SHOW_NOTIFICATIONS("show_notifications"),
+    TAKE_SCREENSHOT("take_screenshot"),
+    OPEN_SETTINGS("open_settings"),
+    OPEN_URL("open_url"),
     INSPECT_SCREEN("inspect_screen"),
     VERIFY_RESULT("verify_result")
 }

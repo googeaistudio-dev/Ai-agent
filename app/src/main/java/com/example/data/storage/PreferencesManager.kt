@@ -20,7 +20,7 @@ class PreferencesManager(private val context: Context) {
     private val _voiceSettings = MutableStateFlow(loadVoiceSettings())
     val voiceSettings: StateFlow<VoiceSettings> = _voiceSettings.asStateFlow()
 
-    private val _floatingMascotEnabled = MutableStateFlow(prefs.getBoolean("mascot_enabled", true))
+    private val _floatingMascotEnabled = MutableStateFlow(prefs.getBoolean("mascot_enabled", false))
     val floatingMascotEnabled: StateFlow<Boolean> = _floatingMascotEnabled.asStateFlow()
 
     private val _reduceMotion = MutableStateFlow(prefs.getBoolean("reduce_motion", false))
@@ -33,7 +33,7 @@ class PreferencesManager(private val context: Context) {
         // Default to BuildConfig.GEMINI_API_KEY if user hasn't explicitly entered a custom key
         val key = if (storedKey.isNotBlank()) storedKey else try {
             val buildKey = BuildConfig.GEMINI_API_KEY
-            if (buildKey != "MY_GEMINI_API_KEY") buildKey else ""
+            if (buildKey.isNotBlank() && buildKey != "MY_GEMINI_API_KEY") buildKey else ""
         } catch (_: Throwable) { "" }
 
         return AIProviderConfig(

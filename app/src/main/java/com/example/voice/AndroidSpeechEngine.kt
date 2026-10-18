@@ -1,13 +1,16 @@
 package com.example.voice
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import androidx.core.content.ContextCompat
 
 class AndroidSpeechEngine(private val context: Context) : SpeechEngine {
 
@@ -18,7 +21,11 @@ class AndroidSpeechEngine(private val context: Context) : SpeechEngine {
     private var currentLanguage = "bn-BD"
 
     override fun isAvailable(): Boolean {
-        return SpeechRecognizer.isRecognitionAvailable(context)
+        return try {
+            SpeechRecognizer.isRecognitionAvailable(context)
+        } catch (_: Throwable) {
+            false
+        }
     }
 
     override val isCurrentlyListening: Boolean
@@ -28,10 +35,30 @@ class AndroidSpeechEngine(private val context: Context) : SpeechEngine {
         this.listener = listener
         this.currentLanguage = languageCode
 
+        // Check permission first before touching audio hardware
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            isListening = false
+            listener.onError(SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS, "Microphone permission required")
+            return
+        }
+
         mainHandler.post {
             try {
+                if (!isAvailable()) {
+                    isListening = false
+                    listener.onError(-1, "Speech recognition service is not available on this device")
+                    return@post
+                }
+
                 if (recognizer == null) {
-                    recognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
+                    val created = SpeechRecognizer.createSpeechRecognizer(context)
+                    if (created == null) {
+                        isListening = false
+                        listener.onError(-1, "Failed to create SpeechRecognizer instance")
+                        return@post
+                    }
+                    recognizer = created.apply {
                         setRecognitionListener(createRecognitionListener())
                     }
                 }
@@ -47,9 +74,9 @@ class AndroidSpeechEngine(private val context: Context) : SpeechEngine {
 
                 recognizer?.startListening(intent)
                 isListening = true
-            } catch (e: Exception) {
+            } catch (t: Throwable) {
                 isListening = false
-                listener.onError(-1, "Speech recognition initialization error: ${e.message}")
+                listener.onError(-1, "Speech recognition initialization error: ${t.message}")
             }
         }
     }
@@ -59,7 +86,7 @@ class AndroidSpeechEngine(private val context: Context) : SpeechEngine {
             try {
                 isListening = false
                 recognizer?.stopListening()
-            } catch (_: Exception) {}
+            } catch (_: Throwable) {}
         }
     }
 
@@ -68,7 +95,7 @@ class AndroidSpeechEngine(private val context: Context) : SpeechEngine {
             try {
                 isListening = false
                 recognizer?.cancel()
-            } catch (_: Exception) {}
+            } catch (_: Throwable) {}
         }
     }
 
@@ -85,7 +112,7 @@ class AndroidSpeechEngine(private val context: Context) : SpeechEngine {
                 recognizer?.destroy()
                 recognizer = null
                 listener = null
-            } catch (_: Exception) {}
+            } catch (_: Throwable) {}
         }
     }
 

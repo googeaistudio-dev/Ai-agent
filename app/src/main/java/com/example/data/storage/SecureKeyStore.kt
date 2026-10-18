@@ -20,7 +20,7 @@ class SecureKeyStore(private val context: Context) {
     init {
         try {
             ensureKeyExists()
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
     }
 
     private fun ensureKeyExists() {
@@ -40,28 +40,37 @@ class SecureKeyStore(private val context: Context) {
         }
     }
 
-    private fun getSecretKey(): SecretKey {
-        val ks = KeyStore.getInstance(androidKeyStore).apply { load(null) }
-        return (ks.getEntry(keyAlias, null) as KeyStore.SecretKeyEntry).secretKey
+    private fun getSecretKey(): SecretKey? {
+        return try {
+            val ks = KeyStore.getInstance(androidKeyStore).apply { load(null) }
+            val entry = ks.getEntry(keyAlias, null) as? KeyStore.SecretKeyEntry
+            entry?.secretKey
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     fun storeSecret(key: String, value: String) {
         try {
             if (value.isBlank()) {
-                prefs.edit().remove(key).remove("${key}_iv").apply()
+                prefs.edit().remove(key).remove("${key}_iv").remove("${key}_plain_fallback").apply()
                 return
             }
-            val cipher = Cipher.getInstance(transformation)
-            cipher.init(Cipher.ENCRYPT_MODE, getSecretKey())
-            val iv = cipher.iv
-            val encryptedBytes = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
+            val secretKey = getSecretKey()
+            if (secretKey != null) {
+                val cipher = Cipher.getInstance(transformation)
+                cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+                val iv = cipher.iv
+                val encryptedBytes = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
 
-            prefs.edit()
-                .putString(key, Base64.encodeToString(encryptedBytes, Base64.NO_WRAP))
-                .putString("${key}_iv", Base64.encodeToString(iv, Base64.NO_WRAP))
-                .apply()
-        } catch (e: Exception) {
-            // Fallback for devices where Keystore fails in sandbox
+                prefs.edit()
+                    .putString(key, Base64.encodeToString(encryptedBytes, Base64.NO_WRAP))
+                    .putString("${key}_iv", Base64.encodeToString(iv, Base64.NO_WRAP))
+                    .apply()
+            } else {
+                prefs.edit().putString("${key}_plain_fallback", value).apply()
+            }
+        } catch (_: Throwable) {
             prefs.edit().putString("${key}_plain_fallback", value).apply()
         }
     }
@@ -70,19 +79,22 @@ class SecureKeyStore(private val context: Context) {
         try {
             val encryptedStr = prefs.getString(key, null)
             val ivStr = prefs.getString("${key}_iv", null)
-            if (encryptedStr != null && ivStr != null) {
+            val secretKey = getSecretKey()
+            if (encryptedStr != null && ivStr != null && secretKey != null) {
                 val cipher = Cipher.getInstance(transformation)
                 val iv = Base64.decode(ivStr, Base64.NO_WRAP)
                 val spec = GCMParameterSpec(128, iv)
-                cipher.init(Cipher.DECRYPT_MODE, getSecretKey(), spec)
+                cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
                 val decrypted = cipher.doFinal(Base64.decode(encryptedStr, Base64.NO_WRAP))
                 return String(decrypted, Charsets.UTF_8)
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
         return prefs.getString("${key}_plain_fallback", "") ?: ""
     }
 
     fun clearAllSecrets() {
-        prefs.edit().clear().apply()
+        try {
+            prefs.edit().clear().apply()
+        } catch (_: Throwable) {}
     }
 }

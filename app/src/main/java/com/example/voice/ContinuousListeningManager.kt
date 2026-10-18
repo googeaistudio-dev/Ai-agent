@@ -83,9 +83,15 @@ class ContinuousListeningManager(
             _isListening.value = false
             _partialText.value = ""
 
+            // If microphone permission is missing or speech engine is unavailable, do not loop
+            if (errorCode == 9 /* ERROR_INSUFFICIENT_PERMISSIONS */ || errorCode == -1) {
+                _isContinuousListening.value = false
+                isPaused = true
+                return
+            }
+
             // On silence or timeout, smoothly restart if continuous mode is enabled
             if (_isContinuousListening.value && !isPaused && !_isSpeaking.value) {
-                // Back off slightly longer for repeated errors
                 val delayTime = if (errorCode == 7 /* ERROR_NO_MATCH */ || errorCode == 6 /* ERROR_SPEECH_TIMEOUT */) {
                     400L
                 } else {
