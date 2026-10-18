@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Nafsi AI</string>
+    <string name="accessibility_service_description">Nafsi AI autonomous assistant service to interact with apps and verify on-screen results upon user voice request.</string>
+</resources>

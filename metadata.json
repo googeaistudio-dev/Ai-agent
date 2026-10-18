@@ -1,0 +1,6 @@
+{
+  "name": "Nafsi AI",
+  "description": "Autonomous Android Voice & Visual Agent with continuous listening, screen vision, and UI automation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
