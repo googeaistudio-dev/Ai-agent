@@ -64,11 +64,12 @@ class GeminiApiClient {
                 return@withContext Result.failure(IllegalStateException("Gemini API key is not configured."))
             }
 
-            val model = if (screenshotBitmap != null && config.visionModelId.isNotBlank()) {
+            val rawModel = if (screenshotBitmap != null && config.visionModelId.isNotBlank()) {
                 config.visionModelId
             } else {
-                config.modelId.ifBlank { "gemini-3.8-flash" }
+                config.modelId.ifBlank { "gemini-2.5-flash" }
             }
+            val model = if (rawModel.contains("gemini-3.") || rawModel.contains("gemini-4")) "gemini-2.5-flash" else rawModel
 
             val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$key"
 

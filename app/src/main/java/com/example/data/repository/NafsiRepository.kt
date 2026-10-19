@@ -243,7 +243,18 @@ class NafsiRepository(private val context: Context) {
         _diagnostics.value = (listOf(formatted) + _diagnostics.value).take(100)
     }
 
-    fun isAccessibilityEnabled(): Boolean = NafsiAccessibilityService.isServiceEnabled
+    fun isAccessibilityEnabled(): Boolean {
+        if (NafsiAccessibilityService.isServiceEnabled) return true
+        return try {
+            val enabledServices = android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            ) ?: ""
+            enabledServices.contains(context.packageName) && enabledServices.contains("NafsiAccessibilityService")
+        } catch (_: Throwable) {
+            false
+        }
+    }
 
     fun release() {
         listeningManager.release()

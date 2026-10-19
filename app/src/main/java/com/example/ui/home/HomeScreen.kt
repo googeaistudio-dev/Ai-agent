@@ -76,7 +76,7 @@ fun HomeScreen(
     val partialText by viewModel.partialText.collectAsState()
     val activeTask by viewModel.activeTask.collectAsState()
 
-    val isAccessibilityEnabled = viewModel.isAccessibilityEnabled()
+    val isAccessibilityEnabled by viewModel.isAccessibilityActive.collectAsState()
     val scrollState = rememberScrollState()
 
     Column(

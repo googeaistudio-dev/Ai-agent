@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.repository.NafsiRepository
 import com.example.domain.model.AIProviderConfig
+import com.example.domain.model.AIProviderType
 import com.example.domain.model.AgentTask
 import com.example.domain.model.ChatMessage
 import com.example.domain.model.DiscoveredModel
@@ -44,6 +45,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isDiscovering = MutableStateFlow(false)
     val isDiscovering: StateFlow<Boolean> = _isDiscovering.asStateFlow()
+
+    private val _isAccessibilityActive = MutableStateFlow(repository.isAccessibilityEnabled())
+    val isAccessibilityActive: StateFlow<Boolean> = _isAccessibilityActive.asStateFlow()
+
+    fun refreshAccessibilityStatus() {
+        _isAccessibilityActive.value = repository.isAccessibilityEnabled()
+    }
+
+    fun getKeyForProvider(type: AIProviderType): String {
+        return repository.preferences.getKeyForProvider(type)
+    }
 
     init {
         // Auto-start continuous listening if enabled in settings

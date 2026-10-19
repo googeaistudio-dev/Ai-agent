@@ -53,25 +53,30 @@ class SecureKeyStore(private val context: Context) {
     fun storeSecret(key: String, value: String) {
         try {
             if (value.isBlank()) {
-                prefs.edit().remove(key).remove("${key}_iv").remove("${key}_plain_fallback").apply()
+                prefs.edit().remove(key).remove("${key}_iv").remove("${key}_plain_fallback").commit()
                 return
             }
             val secretKey = getSecretKey()
             if (secretKey != null) {
-                val cipher = Cipher.getInstance(transformation)
-                cipher.init(Cipher.ENCRYPT_MODE, secretKey)
-                val iv = cipher.iv
-                val encryptedBytes = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
+                try {
+                    val cipher = Cipher.getInstance(transformation)
+                    cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+                    val iv = cipher.iv
+                    val encryptedBytes = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
 
-                prefs.edit()
-                    .putString(key, Base64.encodeToString(encryptedBytes, Base64.NO_WRAP))
-                    .putString("${key}_iv", Base64.encodeToString(iv, Base64.NO_WRAP))
-                    .apply()
-            } else {
-                prefs.edit().putString("${key}_plain_fallback", value).apply()
+                    prefs.edit()
+                        .putString(key, Base64.encodeToString(encryptedBytes, Base64.NO_WRAP))
+                        .putString("${key}_iv", Base64.encodeToString(iv, Base64.NO_WRAP))
+                        .putString("${key}_plain_fallback", value)
+                        .commit()
+                    return
+                } catch (_: Throwable) {}
             }
+            prefs.edit().putString("${key}_plain_fallback", value).commit()
         } catch (_: Throwable) {
-            prefs.edit().putString("${key}_plain_fallback", value).apply()
+            try {
+                prefs.edit().putString("${key}_plain_fallback", value).commit()
+            } catch (_: Throwable) {}
         }
     }
 

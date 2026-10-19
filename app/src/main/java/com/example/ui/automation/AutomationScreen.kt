@@ -65,7 +65,7 @@ fun AutomationScreen(
 ) {
     val context = LocalContext.current
     val activeTask by viewModel.activeTask.collectAsState()
-    val isAccessibilityEnabled = viewModel.isAccessibilityEnabled()
+    val isAccessibilityEnabled by viewModel.isAccessibilityActive.collectAsState()
     val scrollState = rememberScrollState()
 
     Column(
@@ -294,6 +294,10 @@ fun AutomationScreen(
                                 ActionType.INSPECT_SCREEN -> "স্ক্রিনের তথ্য পাঠ করা"
                                 ActionType.VERIFY_RESULT -> "ফলাফল যাচাই ও সত্যতা নিশ্চিতকরণ"
                                 ActionType.SCROLL -> "স্ক্রিন স্ক্রল করা"
+                                ActionType.LONG_PRESS -> "উপাদান দীর্ঘক্ষণ চেপে রাখা"
+                                ActionType.SWIPE -> "স্ক্রিনে সোয়াইপ অঙ্গভঙ্গি"
+                                ActionType.PRESS_KEY -> "কী-বোর্ডের বোতাম চাপানো (Enter/Send)"
+                                ActionType.CLEAR_TEXT -> "ইনপুট ফিল্ডের লেখা মুছে ফেলা"
                             },
                             fontSize = 11.sp,
                             color = TextSecondary

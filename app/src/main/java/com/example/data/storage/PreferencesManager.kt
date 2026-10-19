@@ -26,25 +26,56 @@ class PreferencesManager(private val context: Context) {
     private val _reduceMotion = MutableStateFlow(prefs.getBoolean("reduce_motion", false))
     val reduceMotion: StateFlow<Boolean> = _reduceMotion.asStateFlow()
 
+    fun getKeyForProvider(type: AIProviderType): String {
+        val specificKey = if (type == AIProviderType.GEMINI_DIRECT) {
+            prefs.getString("saved_gemini_api_key", null)
+        } else {
+            prefs.getString("saved_openai_api_key", null)
+        }
+        if (!specificKey.isNullOrBlank()) return specificKey
+
+        val generalKey = prefs.getString("saved_api_key", null)
+        if (!generalKey.isNullOrBlank()) return generalKey
+
+        val secureKey = try { secureStore.getSecret("api_key") } catch (_: Throwable) { "" }
+        if (secureKey.isNotBlank()) return secureKey
+
+        if (type == AIProviderType.GEMINI_DIRECT) {
+            try {
+                val buildKey = BuildConfig.GEMINI_API_KEY
+                if (buildKey.isNotBlank() && buildKey != "MY_GEMINI_API_KEY") return buildKey
+            } catch (_: Throwable) {}
+        }
+        return ""
+    }
+
     private fun loadProviderConfig(): AIProviderConfig {
         val typeStr = prefs.getString("provider_type", AIProviderType.GEMINI_DIRECT.name) ?: AIProviderType.GEMINI_DIRECT.name
         val type = try { AIProviderType.valueOf(typeStr) } catch (_: Exception) { AIProviderType.GEMINI_DIRECT }
-        val storedKey = secureStore.getSecret("api_key")
-        // Default to BuildConfig.GEMINI_API_KEY if user hasn't explicitly entered a custom key
-        val key = if (storedKey.isNotBlank()) storedKey else try {
-            val buildKey = BuildConfig.GEMINI_API_KEY
-            if (buildKey.isNotBlank() && buildKey != "MY_GEMINI_API_KEY") buildKey else ""
-        } catch (_: Throwable) { "" }
+
+        val key = getKeyForProvider(type)
+
         val rawModelId = prefs.getString("model_id", "gemini-2.5-flash") ?: "gemini-2.5-flash"
-        val normalizedModelId = if (rawModelId.contains("gemini-3.") || rawModelId.contains("gemini-4")) "gemini-2.5-flash" else rawModelId
+        val normalizedModelId = if (rawModelId.contains("gemini-3.") || rawModelId.contains("gemini-4") || rawModelId.isBlank()) {
+            if (type == AIProviderType.GEMINI_DIRECT) "gemini-2.5-flash" else "google/gemini-2.0-flash-001"
+        } else rawModelId
 
         val rawVisionModel = prefs.getString("vision_model_id", "gemini-2.5-flash") ?: "gemini-2.5-flash"
-        val normalizedVisionModel = if (rawVisionModel.contains("gemini-3.") || rawVisionModel.contains("gemini-4")) "gemini-2.5-flash" else rawVisionModel
+        val normalizedVisionModel = if (rawVisionModel.contains("gemini-3.") || rawVisionModel.contains("gemini-4") || rawVisionModel.isBlank()) {
+            if (type == AIProviderType.GEMINI_DIRECT) "gemini-2.5-flash" else "google/gemini-2.0-flash-001"
+        } else rawVisionModel
+
+        val defaultBaseUrl = if (type == AIProviderType.GEMINI_DIRECT) {
+            "https://generativelanguage.googleapis.com/"
+        } else {
+            "https://openrouter.ai/api/v1"
+        }
+        val savedBaseUrl = prefs.getString("base_url", defaultBaseUrl) ?: defaultBaseUrl
 
         return AIProviderConfig(
             providerType = type,
             apiKey = key,
-            baseUrl = prefs.getString("base_url", "https://generativelanguage.googleapis.com/") ?: "https://generativelanguage.googleapis.com/",
+            baseUrl = savedBaseUrl,
             modelId = normalizedModelId,
             visionModelId = normalizedVisionModel,
             temperature = prefs.getFloat("temperature", 0.3f),
@@ -56,19 +87,43 @@ class PreferencesManager(private val context: Context) {
     }
 
     fun saveProviderConfig(config: AIProviderConfig) {
-        secureStore.storeSecret("api_key", config.apiKey)
-        prefs.edit()
-            .putString("provider_type", config.providerType.name)
-            .putString("base_url", config.baseUrl)
-            .putString("model_id", config.modelId)
-            .putString("vision_model_id", config.visionModelId)
+        val cleanKey = config.apiKey.trim()
+        val editor = prefs.edit()
+
+        // 1. Save general key and secure store
+        editor.putString("saved_api_key", cleanKey)
+        secureStore.storeSecret("api_key", cleanKey)
+
+        // 2. Save provider-specific key so switching providers preserves both keys
+        if (config.providerType == AIProviderType.GEMINI_DIRECT) {
+            editor.putString("saved_gemini_api_key", cleanKey)
+        } else {
+            editor.putString("saved_openai_api_key", cleanKey)
+        }
+
+        // 3. Normalize model ID to prevent broken gemini-3.8-flash
+        val cleanModel = if (config.modelId.contains("gemini-3.") || config.modelId.contains("gemini-4")) {
+            "gemini-2.5-flash"
+        } else {
+            config.modelId.trim()
+        }
+
+        editor.putString("provider_type", config.providerType.name)
+            .putString("base_url", config.baseUrl.trim())
+            .putString("model_id", cleanModel)
+            .putString("vision_model_id", config.visionModelId.trim().ifBlank { cleanModel })
             .putFloat("temperature", config.temperature)
             .putInt("max_tokens", config.maxTokens)
             .putInt("timeout_seconds", config.timeoutSeconds)
             .putBoolean("use_google_search", config.useGoogleSearch)
             .putString("system_instruction", config.systemInstruction)
-            .apply()
-        _providerConfig.value = config
+            .commit() // Commit synchronously to ensure immediate disk persistence
+
+        _providerConfig.value = config.copy(
+            apiKey = cleanKey,
+            baseUrl = config.baseUrl.trim(),
+            modelId = cleanModel
+        )
     }
 
     private fun loadVoiceSettings(): VoiceSettings {
@@ -90,22 +145,22 @@ class PreferencesManager(private val context: Context) {
             .putFloat("voice_pitch", settings.speechPitch)
             .putBoolean("voice_mute", settings.muteSpokenResponses)
             .putLong("voice_echo_delay", settings.echoPreventionDelayMs)
-            .apply()
+            .commit()
         _voiceSettings.value = settings
     }
 
     fun setFloatingMascotEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean("mascot_enabled", enabled).apply()
+        prefs.edit().putBoolean("mascot_enabled", enabled).commit()
         _floatingMascotEnabled.value = enabled
     }
 
     fun setReduceMotion(reduce: Boolean) {
-        prefs.edit().putBoolean("reduce_motion", reduce).apply()
+        prefs.edit().putBoolean("reduce_motion", reduce).commit()
         _reduceMotion.value = reduce
     }
 
     fun clearAllData() {
-        prefs.edit().clear().apply()
+        prefs.edit().clear().commit()
         secureStore.clearAllSecrets()
         _providerConfig.value = loadProviderConfig()
         _voiceSettings.value = loadVoiceSettings()

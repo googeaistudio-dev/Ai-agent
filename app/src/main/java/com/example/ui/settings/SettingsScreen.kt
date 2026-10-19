@@ -106,6 +106,7 @@ fun SettingsScreen(
     var selectedModel by remember(config.modelId) { mutableStateOf(config.modelId) }
     var modelDropdownExpanded by remember { mutableStateOf(false) }
     var useGoogleSearch by remember(config.useGoogleSearch) { mutableStateOf(config.useGoogleSearch) }
+    var saveSuccessMessage by remember { mutableStateOf<String?>(null) }
 
     var continuousListening by remember(voiceSettings.continuousListening) { mutableStateOf(voiceSettings.continuousListening) }
     var selectedLang by remember(voiceSettings.language) { mutableStateOf(voiceSettings.language) }
@@ -174,18 +175,19 @@ fun SettingsScreen(
                                 if (k.isNotBlank() && k != "MY_GEMINI_API_KEY") k else ""
                             } catch (_: Throwable) { "" }
 
-                            if (apiKeyInput.isBlank() && envKey.isNotBlank()) {
-                                apiKeyInput = envKey
-                            }
+                            val savedKey = viewModel.getKeyForProvider(AIProviderType.GEMINI_DIRECT)
+                            val keyToUse = apiKeyInput.ifBlank { savedKey.ifBlank { envKey } }
+                            apiKeyInput = keyToUse
 
                             val updated = config.copy(
                                 providerType = AIProviderType.GEMINI_DIRECT,
                                 baseUrl = "https://generativelanguage.googleapis.com/",
                                 modelId = "gemini-2.5-flash",
-                                apiKey = apiKeyInput.ifBlank { envKey },
+                                apiKey = keyToUse,
                                 useGoogleSearch = true
                             )
                             viewModel.saveProviderConfig(updated)
+                            saveSuccessMessage = "✓ Google Gemini 2.5 Flash কনফিগারেশন সংরক্ষিত হয়েছে!"
                             viewModel.testConnection()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
@@ -207,12 +209,20 @@ fun SettingsScreen(
                             providerType = AIProviderType.OPENAI_COMPATIBLE
                             baseUrlInput = "https://openrouter.ai/api/v1"
                             selectedModel = "google/gemini-2.0-flash-001"
+
+                            val savedKey = viewModel.getKeyForProvider(AIProviderType.OPENAI_COMPATIBLE)
+                            val keyToUse = apiKeyInput.ifBlank { savedKey }
+                            apiKeyInput = keyToUse
+
                             val updated = config.copy(
                                 providerType = AIProviderType.OPENAI_COMPATIBLE,
                                 baseUrl = "https://openrouter.ai/api/v1",
-                                modelId = "google/gemini-2.0-flash-001"
+                                modelId = "google/gemini-2.0-flash-001",
+                                apiKey = keyToUse
                             )
                             viewModel.saveProviderConfig(updated)
+                            saveSuccessMessage = "✓ OpenRouter API কনফিগারেশন সংরক্ষিত হয়েছে!"
+                            if (keyToUse.isNotBlank()) viewModel.testConnection()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = CyberSurface),
                         shape = RoundedCornerShape(12.dp),
@@ -235,12 +245,20 @@ fun SettingsScreen(
                             providerType = AIProviderType.OPENAI_COMPATIBLE
                             baseUrlInput = "https://api.groq.com/openai/v1"
                             selectedModel = "llama-3.3-70b-versatile"
+
+                            val savedKey = viewModel.getKeyForProvider(AIProviderType.OPENAI_COMPATIBLE)
+                            val keyToUse = apiKeyInput.ifBlank { savedKey }
+                            apiKeyInput = keyToUse
+
                             val updated = config.copy(
                                 providerType = AIProviderType.OPENAI_COMPATIBLE,
                                 baseUrl = "https://api.groq.com/openai/v1",
-                                modelId = "llama-3.3-70b-versatile"
+                                modelId = "llama-3.3-70b-versatile",
+                                apiKey = keyToUse
                             )
                             viewModel.saveProviderConfig(updated)
+                            saveSuccessMessage = "✓ Groq AI কনফিগারেশন সংরক্ষিত হয়েছে!"
+                            if (keyToUse.isNotBlank()) viewModel.testConnection()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = CyberSurface),
                         shape = RoundedCornerShape(12.dp),
@@ -293,11 +311,15 @@ fun SettingsScreen(
                             .background(if (providerType == AIProviderType.GEMINI_DIRECT) NeonCyan.copy(alpha = 0.2f) else Color.Transparent)
                             .clickable {
                                 providerType = AIProviderType.GEMINI_DIRECT
-                                if (baseUrlInput.contains("openrouter") || baseUrlInput.contains("openai")) {
+                                if (baseUrlInput.contains("openrouter") || baseUrlInput.contains("openai") || baseUrlInput.contains("groq")) {
                                     baseUrlInput = "https://generativelanguage.googleapis.com/"
                                 }
                                 if (!selectedModel.startsWith("gemini-")) {
-                                    selectedModel = "gemini-3.8-flash"
+                                    selectedModel = "gemini-2.5-flash"
+                                }
+                                val savedKey = viewModel.getKeyForProvider(AIProviderType.GEMINI_DIRECT)
+                                if (savedKey.isNotBlank()) {
+                                    apiKeyInput = savedKey
                                 }
                             }
                             .padding(vertical = 8.dp),
@@ -320,6 +342,13 @@ fun SettingsScreen(
                                 providerType = AIProviderType.OPENAI_COMPATIBLE
                                 if (baseUrlInput.contains("generativelanguage")) {
                                     baseUrlInput = "https://openrouter.ai/api/v1"
+                                }
+                                if (selectedModel.startsWith("gemini-")) {
+                                    selectedModel = "google/gemini-2.0-flash-001"
+                                }
+                                val savedKey = viewModel.getKeyForProvider(AIProviderType.OPENAI_COMPATIBLE)
+                                if (savedKey.isNotBlank()) {
+                                    apiKeyInput = savedKey
                                 }
                             }
                             .padding(vertical = 8.dp),
@@ -571,6 +600,10 @@ fun SettingsScreen(
                                 useGoogleSearch = useGoogleSearch
                             )
                             viewModel.saveProviderConfig(updated)
+                            saveSuccessMessage = "✓ আপনার API Key ও সেটিংস সফলভাবে সংরক্ষিত হয়েছে!"
+                            if (apiKeyInput.isNotBlank()) {
+                                viewModel.testConnection()
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
                         shape = RoundedCornerShape(12.dp),
@@ -584,8 +617,27 @@ fun SettingsScreen(
                     }
                 }
 
-                if (!testStatus.isNullOrBlank()) {
+                if (!saveSuccessMessage.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(HologramGreen.copy(alpha = 0.15f))
+                            .border(1.dp, HologramGreen.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = saveSuccessMessage.orEmpty(),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = HologramGreen
+                        )
+                    }
+                }
+
+                if (!testStatus.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = testStatus.orEmpty(),
                         fontSize = 12.sp,
@@ -790,7 +842,7 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Accessibility Automation Service Card
-        val isAccessibilityEnabled = viewModel.isAccessibilityEnabled()
+        val isAccessibilityEnabled by viewModel.isAccessibilityActive.collectAsState()
         GlassCard(borderColor = if (isAccessibilityEnabled) HologramGreen else WarningAmber) {
             Column {
                 Row(

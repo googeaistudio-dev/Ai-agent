@@ -95,6 +95,19 @@ class TaskPlanner(
                         resultMessage = cleanedText
                     )
                 }
+            } else {
+                val errorMsg = aiResult.exceptionOrNull()?.message.orEmpty()
+                val naturalTask = interpretNaturalIntent(trimmed)
+                if (naturalTask != null) {
+                    return naturalTask
+                }
+                // If it was a conversational question, explain that the configured AI key had an issue
+                return AgentTask(
+                    rawPrompt = prompt,
+                    goal = "AI Service Notice",
+                    steps = emptyList(),
+                    resultMessage = "AI API সংযোগে সমস্যা হয়েছে: $errorMsg\n\nঅনুগ্রহ করে Settings > AI কনফিগারেশনে আপনার API Key, URL এবং Model Name যাচাই করুন।"
+                )
             }
         }
 
@@ -118,7 +131,130 @@ class TaskPlanner(
     private fun interpretNaturalIntent(prompt: String): AgentTask? {
         val lower = prompt.lowercase()
 
-        // 1. Calculator with multi-step math if user explicitly mentions calculator
+        // 1. Keyboard Typing & Text Input: "লিখো ...", "টাইপ করো ...", "type ...", "write ..."
+        val isTypingCommand = lower.startsWith("লিখো") || lower.startsWith("টাইপ করো") ||
+                lower.startsWith("লেখো") || lower.startsWith("টাইপ করুন") ||
+                lower.startsWith("type ") || lower.startsWith("write ") ||
+                lower.contains("কী-বোর্ডে লিখো") || lower.contains("কীবোর্ডে লিখো")
+
+        if (isTypingCommand) {
+            val textToType = prompt
+                .replaceFirst(Regex("^(লিখো|টাইপ করো|লেখো|টাইপ করুন|কী-বোর্ডে লিখো|কীবোর্ডে লিখো|type|write)", RegexOption.IGNORE_CASE), "")
+                .trim()
+            if (textToType.isNotBlank()) {
+                return AgentTask(
+                    rawPrompt = prompt,
+                    goal = "Type text on screen: $textToType",
+                    steps = listOf(
+                        ActionStep(
+                            index = 0,
+                            action = ActionType.ENTER_TEXT,
+                            target = textToType,
+                            args = mapOf("text" to textToType),
+                            bengaliLabel = "কী-বোর্ডে লিখছি: '$textToType'..."
+                        )
+                    ),
+                    resultMessage = "কী-বোর্ডে লেখা সম্পন্ন হয়েছে: '$textToType'"
+                )
+            }
+        }
+
+        // 2. Keyboard Key Presses: Enter, Search, Send
+        if (lower.contains("এন্টার চাপো") || lower.contains("সার্চ চাপো") ||
+            lower.contains("সেন্ড করো") || lower.contains("পাঠিয়ে দাও") || lower.contains("পাঠাও") ||
+            lower.contains("press enter") || lower.contains("send message") || lower.contains("search button")
+        ) {
+            return AgentTask(
+                rawPrompt = prompt,
+                goal = "Press Enter/Send on Keyboard",
+                steps = listOf(
+                    ActionStep(
+                        index = 0,
+                        action = ActionType.PRESS_KEY,
+                        target = "enter",
+                        args = mapOf("key" to "enter"),
+                        bengaliLabel = "কী-বোর্ডের সেন্ড/সার্চ বোতাম চাপছি..."
+                    )
+                ),
+                resultMessage = "কী-বোর্ডের অ্যাকশন সম্পন্ন হয়েছে।"
+            )
+        }
+
+        // 3. Clear Text in Field
+        if (lower.contains("লেখা মুছে ফেলো") || lower.contains("মুছে দাও") ||
+            lower.contains("ক্লিয়ার করো") || lower.contains("মুছুন") || lower.contains("clear text")
+        ) {
+            return AgentTask(
+                rawPrompt = prompt,
+                goal = "Clear text field",
+                steps = listOf(
+                    ActionStep(
+                        index = 0,
+                        action = ActionType.CLEAR_TEXT,
+                        bengaliLabel = "ইনপুট ফিল্ডের লেখা মুছে ফেলছি..."
+                    )
+                ),
+                resultMessage = "ইনপুট ফিল্ডের লেখা মুছে ফেলা হয়েছে।"
+            )
+        }
+
+        // 4. Scrolling Gestures
+        if (lower.contains("নিচে স্ক্রোল") || lower.contains("নিচে নামাও") || lower.contains("scroll down")) {
+            return AgentTask(
+                rawPrompt = prompt,
+                goal = "Scroll Down",
+                steps = listOf(
+                    ActionStep(
+                        index = 0,
+                        action = ActionType.SCROLL,
+                        args = mapOf("direction" to "down"),
+                        bengaliLabel = "নিচে স্ক্রোল করছি..."
+                    )
+                ),
+                resultMessage = "নিচে স্ক্রোল করা হয়েছে।"
+            )
+        }
+        if (lower.contains("উপরে স্ক্রোল") || lower.contains("উপরে ওঠাও") || lower.contains("scroll up")) {
+            return AgentTask(
+                rawPrompt = prompt,
+                goal = "Scroll Up",
+                steps = listOf(
+                    ActionStep(
+                        index = 0,
+                        action = ActionType.SCROLL,
+                        args = mapOf("direction" to "up"),
+                        bengaliLabel = "উপরে স্ক্রোল করছি..."
+                    )
+                ),
+                resultMessage = "উপরে স্ক্রোল করা হয়েছে।"
+            )
+        }
+
+        // 5. Direct Element Tap / Click
+        if (lower.startsWith("ক্লিক করো") || lower.startsWith("ট্যাপ করো") ||
+            lower.startsWith("click ") || lower.startsWith("tap ")
+        ) {
+            val targetElement = prompt
+                .replaceFirst(Regex("^(ক্লিক করো|ট্যাপ করো|click|tap)", RegexOption.IGNORE_CASE), "")
+                .trim()
+            if (targetElement.isNotBlank()) {
+                return AgentTask(
+                    rawPrompt = prompt,
+                    goal = "Tap element: $targetElement",
+                    steps = listOf(
+                        ActionStep(
+                            index = 0,
+                            action = ActionType.TAP_ELEMENT,
+                            target = targetElement,
+                            bengaliLabel = "'$targetElement' স্পর্শ করছি..."
+                        )
+                    ),
+                    resultMessage = "'$targetElement' স্পর্শ করা হয়েছে।"
+                )
+            }
+        }
+
+        // 6. Calculator with multi-step math if user explicitly mentions calculator
         if (lower.contains("ক্যালকুলেটর") || lower.contains("calculator")) {
             val steps = mutableListOf<ActionStep>()
             steps.add(ActionStep(index = 0, action = ActionType.LAUNCH_APP, target = "Calculator", bengaliLabel = "ক্যালকুলেটর খুলছি..."))
@@ -517,7 +653,12 @@ class TaskPlanner(
             "launch_app", "open_app" -> ActionType.LAUNCH_APP
             "tap_element", "click_element" -> ActionType.TAP_ELEMENT
             "tap_coordinate", "click_coordinate" -> ActionType.TAP_COORDINATE
+            "long_press", "long_click" -> ActionType.LONG_PRESS
             "enter_text", "type_text" -> ActionType.ENTER_TEXT
+            "press_key", "key", "press_enter", "ime_action" -> ActionType.PRESS_KEY
+            "clear_text", "clear" -> ActionType.CLEAR_TEXT
+            "scroll" -> ActionType.SCROLL
+            "swipe" -> ActionType.SWIPE
             "press_back", "back" -> ActionType.PRESS_BACK
             "press_home", "home" -> ActionType.PRESS_HOME
             "show_recents", "recents" -> ActionType.SHOW_RECENTS
